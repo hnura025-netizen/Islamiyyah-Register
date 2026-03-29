@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Islamiyyah Register | Firebase Cloud</title>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    
+    <style>
+        :root {
+            --bg: #0f172a; --card-bg: #1e293b; --primary: #3b82f6;
+            --success: #10b981; --danger: #ef4444; --warning: #f59e0b;
+            --text: #f8fafc; --text-dim: #94a3b8;
+        }
+        * { box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background: var(--bg); color: var(--text); margin: 0; padding: 15px; min-height: 100vh; }
+        .container { width: 100%; max-width: 500px; margin: 0 auto; }
+        .card { background: var(--card-bg); padding: 20px; border-radius: 20px; border: 1px solid #334155; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); position: relative; }
+        h3, h4 { margin: 0 0 15px 0; color: var(--primary); }
+        
+        /* Sync Status */
+        #syncBadge { position: absolute; top: 15px; right: 20px; font-size: 0.65rem; padding: 4px 8px; border-radius: 20px; background: #334155; color: var(--text-dim); }
+        .syncing { color: var(--warning) !important; }
+        .synced { color: var(--success) !important; }
+
+        .input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        label { font-size: 0.75rem; color: var(--text-dim); display: block; margin-bottom: 5px; }
+        input, select { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #334155; background: var(--bg); color: white; font-size: 0.9rem; }
+        
+        #dayStatus { background: rgba(245, 158, 11, 0.1); border: 1px solid var(--warning); color: var(--warning); padding: 10px; border-radius: 10px; font-size: 0.85rem; margin-bottom: 15px; text-align: center; }
+        .marking-zone { text-align: center; padding: 10px 0; }
+        .name-display { font-size: 2.2rem; font-weight: 800; margin: 20px 0; min-height: 80px; display: flex; align-items: center; justify-content: center; color: #fff; }
+        
+        .absence-warning { background: #450a0a; border: 1px solid var(--danger); color: #fca5a5; padding: 15px; border-radius: 15px; margin-bottom: 20px; font-size: 0.85rem; text-align: left; border-left: 5px solid var(--danger); }
+        
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .btn { border: none; padding: 18px; border-radius: 15px; font-weight: bold; cursor: pointer; font-size: 1rem; transition: 0.2s; }
+        .btn-absent { background: var(--danger); color: white; }
+        .btn-present { background: var(--success); color: white; }
+        .btn-primary { background: var(--primary); color: white; width: 100%; }
+        .btn-primary:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
+
+        .tabs { display: flex; gap: 5px; margin-bottom: 15px; overflow-x: auto; padding-bottom: 5px; }
+        .tab-btn { background: var(--card-bg); color: var(--text-dim); border: 1px solid #334155; padding: 10px 15px; border-radius: 10px; cursor: pointer; white-space: nowrap; font-size: 0.8rem; }
+        .tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th { text-align: left; color: var(--text-dim); padding: 10px; border-bottom: 2px solid #334155; }
+        td { padding: 12px 10px; border-bottom: 1px solid #334155; }
+        .hidden { display: none !important; }
+        .text-danger { color: #f87171; }
+        .text-success { color: #4ade80; }
+        .filter-box { background: var(--bg); padding: 10px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #334155; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="card">
+        <div id="syncBadge">Connecting...</div>
+        <h3>Class Register</h3>
+        <div id="dayStatus" class="hidden"></div>
+        <div class="input-row">
+            <div><label>Date</label><input type="date" id="dateSelect" onchange="checkSchedule()"></div>
+            <div><label>Session</label><select id="sessionSelect"></select></div>
+        </div>
+        <div class="marking-zone">
+            <div id="absenceAlert" class="absence-warning hidden">
+                <strong>⚠️ Consecutive Absences:</strong><br>
+                <div id="absenceHistory" style="margin-top:5px; line-height: 1.4;"></div>
+            </div>
+            <div id="progressText" style="color: var(--text-dim); font-size: 0.8rem;">Ready</div>
+            <div class="name-display" id="nameDisplay">---</div>
+            <button id="startBtn" class="btn btn-primary" onclick="initMarking()">Start Session</button>
+            <div id="markControls" class="btn-group hidden">
+                <button class="btn btn-absent" onclick="processMark('Absent')">❌ Absent</button>
+                <button class="btn btn-present" onclick="processMark('Present')">✅ Present</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('analytics')">Analytics</button>
+        <button class="tab-btn" onclick="switchTab('logs')">Daily Logs</button>
+        <button class="tab-btn" onclick="switchTab('students')">Students</button>
+    </div>
+
+    <div id="tab-analytics" class="card tab-pane">
+        <h4>Performance Ranking</h4>
+        <table><thead><tr><th>Student</th><th>P</th><th>A</th><th>Rate</th></tr></thead><tbody id="analyticsBody"></tbody></table>
+    </div>
+
+    <div id="tab-logs" class="card tab-pane hidden">
+        <h4>Search Daily Logs</h4>
+        <div class="filter-box"><label>Filter Date</label><input type="date" id="logFilterDate" onchange="refreshLogs()"></div>
+        <div id="logResults"><table><thead><tr><th>Session</th><th>Absent Students</th></tr></thead><tbody id="logsBody"></tbody></table></div>
+    </div>
+
+    <div id="tab-students" class="card tab-pane hidden">
+        <h4>Manage Students</h4>
+        <div style="display:flex; gap:10px; margin-bottom:15px;"><input type="text" id="studentInput" placeholder="Name..."><button class="btn btn-present" onclick="addNewStudent()" style="padding:10px 20px;">Add</button></div>
+        <div id="studentList"></div>
+    </div>
+</div>
+
+<script>
+    // --- FIREBASE INITIALIZATION ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyDv_d91DB9eYBkemhHCOgEb2FhvsYyH_dg",
+      authDomain: "islamiyyah-register.firebaseapp.com",
+      projectId: "islamiyyah-register",
+      storageBucket: "islamiyyah-register.firebasestorage.app",
+      messagingSenderId: "461560249743",
+      appId: "1:461560249743:web:18484ea2d9efdfc192dffa"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let studentList = [];
+    let attendanceHistory = [];
+    let currentIdx = 0;
+    let currentSessionData = [];
+
+    async function syncData() {
+        updateSyncStatus('Syncing...', 'syncing');
+        try {
+            const studentDoc = await db.collection('settings').doc('students').get();
+            if (studentDoc.exists) studentList = studentDoc.data().names || [];
+            
+            const historySnapshot = await db.collection('attendance').orderBy('timestamp', 'desc').limit(100).get();
+            attendanceHistory = historySnapshot.docs.map(doc => doc.data());
+            
+            refreshData();
+            updateSyncStatus('Cloud Synced', 'synced');
+        } catch (e) {
+            updateSyncStatus('Offline Mode', '');
+            console.error(e);
+        }
+    }
+
+    function updateSyncStatus(text, className) {
+        const badge = document.getElementById('syncBadge');
+        badge.innerText = text;
+        badge.className = className;
+    }
+
+    document.getElementById('dateSelect').valueAsDate = new Date();
+    document.getElementById('logFilterDate').valueAsDate = new Date();
+
+    function checkSchedule() {
+        const date = new Date(document.getElementById('dateSelect').value);
+        const day = date.getUTCDay();
+        const select = document.getElementById('sessionSelect');
+        const startBtn = document.getElementById('startBtn');
+        const statusBox = document.getElementById('dayStatus');
+        select.innerHTML = '';
+        if (day === 4 || day === 5) {
+            startBtn.disabled = true; statusBox.innerText = "Closed: Thursday/Friday";
+            statusBox.classList.remove('hidden'); select.innerHTML = '<option>Closed</option>';
+        } else {
+            startBtn.disabled = false; statusBox.classList.add('hidden');
+            if (day === 6 || day === 0) select.innerHTML = '<option value="Morning">Morning</option><option value="Evening">Evening</option>';
+            else select.innerHTML = '<option value="Single Session">Single Session</option>';
+        }
+    }
+
+    function getAbsentStreak(name) {
+        let missed = [];
+        for (let entry of attendanceHistory) {
+            const record = entry.data.find(r => r.name === name);
+            if (record) {
+                if (record.status === 'Absent') missed.push(`${entry.date} (${entry.session})`);
+                else break;
+            }
+        }
+        return missed;
+    }
+
+    function initMarking() {
+        if (studentList.length === 0) return alert("Add students first.");
+        currentIdx = 0; currentSessionData = [];
+        document.getElementById('startBtn').classList.add('hidden');
+        document.getElementById('markControls').classList.remove('hidden');
+        updateUI();
+    }
+
+    function updateUI() {
+        const name = studentList[currentIdx];
+        document.getElementById('nameDisplay').innerText = name;
+        document.getElementById('progressText').innerText = `Marking ${currentIdx + 1}/${studentList.length}`;
+        const missed = getAbsentStreak(name);
+        const alertBox = document.getElementById('absenceAlert');
+        if (missed.length > 0) {
+            alertBox.classList.remove('hidden');
+            document.getElementById('absenceHistory').innerHTML = missed.map(m => `• ${m}`).join('<br>');
+        } else alertBox.classList.add('hidden');
+    }
+
+    async function processMark(status) {
+        currentSessionData.push({ name: studentList[currentIdx], status: status });
+        currentIdx++;
+        if (currentIdx < studentList.length) updateUI();
+        else {
+            updateSyncStatus('Saving...', 'syncing');
+            const entry = {
+                date: document.getElementById('dateSelect').value,
+                session: document.getElementById('sessionSelect').value,
+                data: currentSessionData,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            await db.collection('attendance').add(entry);
+            location.reload();
+        }
+    }
+
+    function switchTab(target) {
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.add('hidden'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-' + target).classList.remove('hidden');
+        event.currentTarget.classList.add('active');
+        if(target === 'logs') refreshLogs(); else refreshData();
+    }
+
+    function refreshLogs() {
+        const filterDate = document.getElementById('logFilterDate').value;
+        const lBody = document.getElementById('logsBody');
+        lBody.innerHTML = '';
+        const filtered = attendanceHistory.filter(h => h.date === filterDate);
+        if (filtered.length === 0) lBody.innerHTML = '<tr><td colspan="2" style="text-align:center;">No records.</td></tr>';
+        else filtered.forEach(h => {
+            const absents = h.data.filter(r => r.status === 'Absent').map(r => r.name);
+            lBody.innerHTML += `<tr><td><strong>${h.session}</strong></td><td class="text-danger">${absents.join(', ') || 'None'}</td></tr>`;
+        });
+    }
+
+    function refreshData() {
+        const aBody = document.getElementById('analyticsBody'); aBody.innerHTML = '';
+        studentList.forEach(name => {
+            let p = 0, a = 0;
+            attendanceHistory.forEach(h => {
+                const res = h.data.find(r => r.name === name);
+                if (res) res.status === 'Present' ? p++ : a++;
+            });
+            const rate = (p+a) === 0 ? 0 : Math.round((p/(p+a))*100);
+            aBody.innerHTML += `<tr><td>${name}</td><td class="text-success">${p}</td><td class="text-danger">${a}</td><td>${rate}%</td></tr>`;
+        });
+        const sDiv = document.getElementById('studentList'); sDiv.innerHTML = '';
+        studentList.forEach((s, i) => {
+            sDiv.innerHTML += `<div style="display:flex; justify-content:space-between; padding:10px; border-bottom:1px solid #334155;"><span>${s}</span><button onclick="removeStudent(${i})" style="color:var(--danger); background:none; border:none;">Delete</button></div>`;
+        });
+    }
+
+    async function addNewStudent() {
+        const val = document.getElementById('studentInput').value.trim();
+        if (val) {
+            studentList.push(val);
+            await db.collection('settings').doc('students').set({ names: studentList });
+            document.getElementById('studentInput').value = '';
+            syncData();
+        }
+    }
+
+    async function removeStudent(i) {
+        if(confirm("Delete student?")) {
+            studentList.splice(i, 1);
+            await db.collection('settings').doc('students').set({ names: studentList });
+            syncData();
+        }
+    }
+
+    checkSchedule();
+    syncData();
+</script>
+</body>
+</html>
