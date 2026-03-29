@@ -61,6 +61,10 @@
         .text-danger { color: #f87171; }
         .text-success { color: #4ade80; }
         .filter-box { background: var(--bg); padding: 10px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #334155; }
+
+        /* Edit Button Styles */
+        .btn-edit { color: var(--warning); background: none; border: none; margin-right: 12px; font-weight: bold; cursor: pointer; }
+        .edit-input { background: var(--bg); color: white; border: 1px solid var(--primary); padding: 5px 8px; border-radius: 8px; width: 65%; font-size: 0.9rem; }
     </style>
 </head>
 <body>
@@ -252,6 +256,7 @@
     }
 
     function refreshData() {
+        // Analytics Update
         const aBody = document.getElementById('analyticsBody'); aBody.innerHTML = '';
         studentList.forEach(name => {
             let p = 0, a = 0;
@@ -262,15 +267,51 @@
             const rate = (p+a) === 0 ? 0 : Math.round((p/(p+a))*100);
             aBody.innerHTML += `<tr><td>${name}</td><td class="text-success">${p}</td><td class="text-danger">${a}</td><td>${rate}%</td></tr>`;
         });
+
+        // Student List Update with Edit Button
         const sDiv = document.getElementById('studentList'); sDiv.innerHTML = '';
         studentList.forEach((s, i) => {
-            sDiv.innerHTML += `<div style="display:flex; justify-content:space-between; padding:10px; border-bottom:1px solid #334155;"><span>${s}</span><button onclick="removeStudent(${i})" style="color:var(--danger); background:none; border:none;">Delete</button></div>`;
+            sDiv.innerHTML += `
+                <div id="row-${i}" style="display:flex; justify-content:space-between; align-items:center; padding:12px; border-bottom:1px solid #334155;">
+                    <span id="name-${i}">${s}</span>
+                    <div id="actions-${i}">
+                        <button class="btn-edit" onclick="editStudent(${i})">Edit</button>
+                        <button onclick="removeStudent(${i})" style="color:var(--danger); background:none; border:none; font-weight:bold;">Delete</button>
+                    </div>
+                </div>`;
         });
+    }
+
+    // --- NEW EDIT LOGIC ---
+    function editStudent(i) {
+        const nameSpan = document.getElementById(`name-${i}`);
+        const actionsDiv = document.getElementById(`actions-${i}`);
+        const currentName = studentList[i];
+
+        nameSpan.innerHTML = `<input type="text" id="input-${i}" class="edit-input" value="${currentName}">`;
+        actionsDiv.innerHTML = `
+            <button class="btn-edit" style="color:var(--success)" onclick="saveEdit(${i})">Save</button>
+            <button style="color:var(--text-dim); background:none; border:none;" onclick="refreshData()">Cancel</button>
+        `;
+    }
+
+    async function saveEdit(i) {
+        const newName = document.getElementById(`input-${i}`).value.trim();
+        if (newName && newName !== studentList[i]) {
+            updateSyncStatus('Updating...', 'syncing');
+            studentList[i] = newName;
+            await db.collection('settings').doc('students').set({ names: studentList });
+            updateSyncStatus('Cloud Synced', 'synced');
+            refreshData();
+        } else {
+            refreshData();
+        }
     }
 
     async function addNewStudent() {
         const val = document.getElementById('studentInput').value.trim();
         if (val) {
+            if(studentList.includes(val)) return alert("Already exists!");
             studentList.push(val);
             await db.collection('settings').doc('students').set({ names: studentList });
             document.getElementById('studentInput').value = '';
@@ -279,7 +320,7 @@
     }
 
     async function removeStudent(i) {
-        if(confirm("Delete student?")) {
+        if(confirm(`Delete ${studentList[i]}?`)) {
             studentList.splice(i, 1);
             await db.collection('settings').doc('students').set({ names: studentList });
             syncData();
