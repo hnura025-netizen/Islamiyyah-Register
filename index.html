@@ -20,6 +20,7 @@
             --bg: #0f172a; --card-bg: #1e293b; --primary: #3b82f6;
             --success: #10b981; --danger: #ef4444; --warning: #f59e0b;
             --text: #f8fafc; --text-dim: #94a3b8;
+            --female: #ec4899; --male: #0ea5e9;
         }
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
         body { background: var(--bg); color: var(--text); margin: 0; padding: 15px; min-height: 100vh; }
@@ -37,7 +38,7 @@
         
         #dayStatus { background: rgba(245, 158, 11, 0.1); border: 1px solid var(--warning); color: var(--warning); padding: 10px; border-radius: 10px; font-size: 0.85rem; margin-bottom: 15px; text-align: center; }
         .marking-zone { text-align: center; padding: 10px 0; }
-        .name-display { font-size: 2.2rem; font-weight: 800; margin: 20px 0; min-height: 80px; display: flex; align-items: center; justify-content: center; color: #fff; }
+        .name-display { font-size: 2.2rem; font-weight: 800; margin: 20px 0; min-height: 80px; display: flex; align-items: center; justify-content: center; color: #fff; text-align: center; }
         
         .absence-warning { background: #450a0a; border: 1px solid var(--danger); color: #fca5a5; padding: 15px; border-radius: 15px; margin-bottom: 20px; font-size: 0.85rem; text-align: left; border-left: 5px solid var(--danger); }
         
@@ -46,12 +47,10 @@
         .btn-absent { background: var(--danger); color: white; }
         .btn-present { background: var(--success); color: white; }
         .btn-primary { background: var(--primary); color: white; width: 100%; }
-        .btn-primary:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
         .btn:active { transform: scale(0.95); }
 
         .tabs { display: flex; gap: 5px; margin-bottom: 15px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none; }
-        .tabs::-webkit-scrollbar { display: none; }
-        .tab-btn { background: var(--card-bg); color: var(--text-dim); border: 1px solid #334155; padding: 10px 15px; border-radius: 10px; cursor: pointer; white-space: nowrap; font-size: 0.8rem; }
+        .tab-btn { background: var(--card-bg); color: var(--text-dim); border: 1px solid #334155; padding: 10px 15px; border-radius: 10px; cursor: pointer; white-space: nowrap; font-size: 0.8rem; flex: 1; }
         .tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
 
         table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
@@ -60,11 +59,10 @@
         .hidden { display: none !important; }
         .text-danger { color: #f87171; }
         .text-success { color: #4ade80; }
-        .filter-box { background: var(--bg); padding: 10px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #334155; }
-
-        /* Edit Button Styles */
+        
+        .list-header { background: #334155; padding: 8px 15px; border-radius: 8px; font-size: 0.75rem; margin-top: 15px; font-weight: bold; color: var(--text-dim); text-transform: uppercase; }
         .btn-edit { color: var(--warning); background: none; border: none; margin-right: 12px; font-weight: bold; cursor: pointer; }
-        .edit-input { background: var(--bg); color: white; border: 1px solid var(--primary); padding: 5px 8px; border-radius: 8px; width: 65%; font-size: 0.9rem; }
+        .edit-input { background: var(--bg); color: white; border: 1px solid var(--primary); padding: 5px 8px; border-radius: 8px; width: 60%; font-size: 0.9rem; }
     </style>
 </head>
 <body>
@@ -84,6 +82,7 @@
                 <div id="absenceHistory" style="margin-top:5px; line-height: 1.4;"></div>
             </div>
             <div id="progressText" style="color: var(--text-dim); font-size: 0.8rem;">Ready</div>
+            <div id="genderLabel" style="font-size: 0.7rem; font-weight: bold; margin-bottom: -15px;"></div>
             <div class="name-display" id="nameDisplay">---</div>
             <button id="startBtn" class="btn btn-primary" onclick="initMarking()">Start Session</button>
             <div id="markControls" class="btn-group hidden">
@@ -94,7 +93,7 @@
     </div>
 
     <div class="tabs">
-        <button class="tab-btn active" onclick="switchTab('analytics')">Analytics</button>
+        <button class="tab-btn active" onclick="switchTab('analytics')">Ranking</button>
         <button class="tab-btn" onclick="switchTab('logs')">Daily Logs</button>
         <button class="tab-btn" onclick="switchTab('students')">Students</button>
     </div>
@@ -105,27 +104,30 @@
     </div>
 
     <div id="tab-logs" class="card tab-pane hidden">
-        <h4>Search Daily Logs</h4>
-        <div class="filter-box"><label>Filter Date</label><input type="date" id="logFilterDate" onchange="refreshLogs()"></div>
-        <div id="logResults"><table><thead><tr><th>Session</th><th>Absent Students</th></tr></thead><tbody id="logsBody"></tbody></table></div>
+        <h4>Daily Logs</h4>
+        <input type="date" id="logFilterDate" onchange="refreshLogs()" style="margin-bottom:15px;">
+        <div id="logResults"><table><thead><tr><th>Session</th><th>Absents</th></tr></thead><tbody id="logsBody"></tbody></table></div>
     </div>
 
     <div id="tab-students" class="card tab-pane hidden">
         <h4>Manage Students</h4>
-        <div style="display:flex; gap:10px; margin-bottom:15px;"><input type="text" id="studentInput" placeholder="Name..."><button class="btn btn-present" onclick="addNewStudent()" style="padding:10px 20px;">Add</button></div>
+        <input type="text" id="studentInput" placeholder="Enter Name..." style="margin-bottom:10px;">
+        <div class="input-row">
+            <select id="genderSelectInput">
+                <option value="females">Female</option>
+                <option value="males">Male</option>
+            </select>
+            <button class="btn btn-present" onclick="addNewStudent()" style="padding:0;">Add Student</button>
+        </div>
         <div id="studentList"></div>
     </div>
 </div>
 
 <script>
-    // --- SERVICE WORKER REGISTRATION ---
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js')
-            .then(() => console.log("SW Registered"))
-            .catch(err => console.log("SW Failed", err));
+        navigator.serviceWorker.register('sw.js').then(() => console.log("SW Registered"));
     }
 
-    // --- FIREBASE INITIALIZATION ---
     const firebaseConfig = {
       apiKey: "AIzaSyDv_d91DB9eYBkemhHCOgEb2FhvsYyH_dg",
       authDomain: "islamiyyah-register.firebaseapp.com",
@@ -138,7 +140,8 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    let studentList = [];
+    let students = { females: [], males: [] };
+    let combinedList = [];
     let attendanceHistory = [];
     let currentIdx = 0;
     let currentSessionData = [];
@@ -146,60 +149,44 @@
     async function syncData() {
         updateSyncStatus('Syncing...', 'syncing');
         try {
-            const studentDoc = await db.collection('settings').doc('students').get();
-            if (studentDoc.exists) studentList = studentDoc.data().names || [];
-            
-            const historySnapshot = await db.collection('attendance').orderBy('timestamp', 'desc').limit(100).get();
-            attendanceHistory = historySnapshot.docs.map(doc => doc.data());
-            
+            const doc = await db.collection('settings').doc('students').get();
+            if (doc.exists) {
+                const data = doc.data();
+                students.females = data.females || [];
+                students.males = data.males || [];
+            }
+            const history = await db.collection('attendance').orderBy('timestamp', 'desc').limit(50).get();
+            attendanceHistory = history.docs.map(d => d.data());
             refreshData();
             updateSyncStatus('Cloud Synced', 'synced');
-        } catch (e) {
-            updateSyncStatus('Offline Mode', '');
-            console.error(e);
-        }
+        } catch (e) { console.error(e); updateSyncStatus('Offline', ''); }
     }
 
     function updateSyncStatus(text, className) {
         const badge = document.getElementById('syncBadge');
-        badge.innerText = text;
-        badge.className = className;
+        badge.innerText = text; badge.className = className;
     }
 
-    document.getElementById('dateSelect').valueAsDate = new Date();
-    document.getElementById('logFilterDate').valueAsDate = new Date();
-
     function checkSchedule() {
-        const date = new Date(document.getElementById('dateSelect').value);
-        const day = date.getUTCDay();
+        const day = new Date(document.getElementById('dateSelect').value).getUTCDay();
         const select = document.getElementById('sessionSelect');
         const startBtn = document.getElementById('startBtn');
         const statusBox = document.getElementById('dayStatus');
-        select.innerHTML = '';
         if (day === 4 || day === 5) {
             startBtn.disabled = true; statusBox.innerText = "Closed: Thursday/Friday";
             statusBox.classList.remove('hidden'); select.innerHTML = '<option>Closed</option>';
         } else {
             startBtn.disabled = false; statusBox.classList.add('hidden');
-            if (day === 6 || day === 0) select.innerHTML = '<option value="Morning">Morning</option><option value="Evening">Evening</option>';
-            else select.innerHTML = '<option value="Single Session">Single Session</option>';
+            select.innerHTML = (day === 6 || day === 0) ? '<option>Morning</option><option>Evening</option>' : '<option>Single Session</option>';
         }
-    }
-
-    function getAbsentStreak(name) {
-        let missed = [];
-        for (let entry of attendanceHistory) {
-            const record = entry.data.find(r => r.name === name);
-            if (record) {
-                if (record.status === 'Absent') missed.push(`${entry.date} (${entry.session})`);
-                else break;
-            }
-        }
-        return missed;
     }
 
     function initMarking() {
-        if (studentList.length === 0) return alert("Add students first.");
+        combinedList = [
+            ...students.females.map(name => ({ name, gender: 'Female' })),
+            ...students.males.map(name => ({ name, gender: 'Male' }))
+        ];
+        if (combinedList.length === 0) return alert("Add students first.");
         currentIdx = 0; currentSessionData = [];
         document.getElementById('startBtn').classList.add('hidden');
         document.getElementById('markControls').classList.remove('hidden');
@@ -207,58 +194,36 @@
     }
 
     function updateUI() {
-        const name = studentList[currentIdx];
-        document.getElementById('nameDisplay').innerText = name;
-        document.getElementById('progressText').innerText = `Marking ${currentIdx + 1}/${studentList.length}`;
-        const missed = getAbsentStreak(name);
-        const alertBox = document.getElementById('absenceAlert');
-        if (missed.length > 0) {
-            alertBox.classList.remove('hidden');
-            document.getElementById('absenceHistory').innerHTML = missed.map(m => `• ${m}`).join('<br>');
-        } else alertBox.classList.add('hidden');
+        const student = combinedList[currentIdx];
+        const nameDisp = document.getElementById('nameDisplay');
+        const genderLbl = document.getElementById('genderLabel');
+        
+        nameDisp.innerText = student.name;
+        genderLbl.innerText = student.gender;
+        genderLbl.style.color = student.gender === 'Female' ? 'var(--female)' : 'var(--male)';
+        document.getElementById('progressText').innerText = `Marking ${currentIdx + 1}/${combinedList.length}`;
     }
 
     async function processMark(status) {
-        currentSessionData.push({ name: studentList[currentIdx], status: status });
+        currentSessionData.push({ name: combinedList[currentIdx].name, status: status });
         currentIdx++;
-        if (currentIdx < studentList.length) updateUI();
+        if (currentIdx < combinedList.length) updateUI();
         else {
             updateSyncStatus('Saving...', 'syncing');
-            const entry = {
+            await db.collection('attendance').add({
                 date: document.getElementById('dateSelect').value,
                 session: document.getElementById('sessionSelect').value,
                 data: currentSessionData,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            };
-            await db.collection('attendance').add(entry);
+            });
             location.reload();
         }
     }
 
-    function switchTab(target) {
-        document.querySelectorAll('.tab-pane').forEach(p => p.classList.add('hidden'));
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById('tab-' + target).classList.remove('hidden');
-        event.currentTarget.classList.add('active');
-        if(target === 'logs') refreshLogs(); else refreshData();
-    }
-
-    function refreshLogs() {
-        const filterDate = document.getElementById('logFilterDate').value;
-        const lBody = document.getElementById('logsBody');
-        lBody.innerHTML = '';
-        const filtered = attendanceHistory.filter(h => h.date === filterDate);
-        if (filtered.length === 0) lBody.innerHTML = '<tr><td colspan="2" style="text-align:center;">No records.</td></tr>';
-        else filtered.forEach(h => {
-            const absents = h.data.filter(r => r.status === 'Absent').map(r => r.name);
-            lBody.innerHTML += `<tr><td><strong>${h.session}</strong></td><td class="text-danger">${absents.join(', ') || 'None'}</td></tr>`;
-        });
-    }
-
     function refreshData() {
-        // Analytics Update
+        // Ranking
         const aBody = document.getElementById('analyticsBody'); aBody.innerHTML = '';
-        studentList.forEach(name => {
+        [...students.females, ...students.males].forEach(name => {
             let p = 0, a = 0;
             attendanceHistory.forEach(h => {
                 const res = h.data.find(r => r.name === name);
@@ -268,65 +233,84 @@
             aBody.innerHTML += `<tr><td>${name}</td><td class="text-success">${p}</td><td class="text-danger">${a}</td><td>${rate}%</td></tr>`;
         });
 
-        // Student List Update with Edit Button
+        // Student List
         const sDiv = document.getElementById('studentList'); sDiv.innerHTML = '';
-        studentList.forEach((s, i) => {
-            sDiv.innerHTML += `
-                <div id="row-${i}" style="display:flex; justify-content:space-between; align-items:center; padding:12px; border-bottom:1px solid #334155;">
-                    <span id="name-${i}">${s}</span>
-                    <div id="actions-${i}">
-                        <button class="btn-edit" onclick="editStudent(${i})">Edit</button>
-                        <button onclick="removeStudent(${i})" style="color:var(--danger); background:none; border:none; font-weight:bold;">Delete</button>
+        renderSection(sDiv, 'Females', students.females, 'females');
+        renderSection(sDiv, 'Males', students.males, 'males');
+    }
+
+    function renderSection(parent, label, list, key) {
+        parent.innerHTML += `<div class="list-header">${label} (${list.length})</div>`;
+        list.forEach((name, i) => {
+            parent.innerHTML += `
+                <div id="row-${key}-${i}" style="display:flex; justify-content:space-between; align-items:center; padding:12px; border-bottom:1px solid #334155;">
+                    <span id="name-${key}-${i}">${name}</span>
+                    <div id="actions-${key}-${i}">
+                        <button class="btn-edit" onclick="editStudent('${key}', ${i})">Edit</button>
+                        <button onclick="removeStudent('${key}', ${i})" style="color:var(--danger); background:none; border:none; font-weight:bold;">Delete</button>
                     </div>
                 </div>`;
         });
     }
 
-    // --- NEW EDIT LOGIC ---
-    function editStudent(i) {
-        const nameSpan = document.getElementById(`name-${i}`);
-        const actionsDiv = document.getElementById(`actions-${i}`);
-        const currentName = studentList[i];
-
-        nameSpan.innerHTML = `<input type="text" id="input-${i}" class="edit-input" value="${currentName}">`;
+    function editStudent(key, i) {
+        const nameSpan = document.getElementById(`name-${key}-${i}`);
+        const actionsDiv = document.getElementById(`actions-${key}-${i}`);
+        const currentName = students[key][i];
+        nameSpan.innerHTML = `<input type="text" id="input-${key}-${i}" class="edit-input" value="${currentName}">`;
         actionsDiv.innerHTML = `
-            <button class="btn-edit" style="color:var(--success)" onclick="saveEdit(${i})">Save</button>
+            <button class="btn-edit" style="color:var(--success)" onclick="saveEdit('${key}', ${i})">Save</button>
             <button style="color:var(--text-dim); background:none; border:none;" onclick="refreshData()">Cancel</button>
         `;
     }
 
-    async function saveEdit(i) {
-        const newName = document.getElementById(`input-${i}`).value.trim();
-        if (newName && newName !== studentList[i]) {
-            updateSyncStatus('Updating...', 'syncing');
-            studentList[i] = newName;
-            await db.collection('settings').doc('students').set({ names: studentList });
-            updateSyncStatus('Cloud Synced', 'synced');
-            refreshData();
-        } else {
+    async function saveEdit(key, i) {
+        const newName = document.getElementById(`input-${key}-${i}`).value.trim();
+        if (newName) {
+            students[key][i] = newName;
+            await db.collection('settings').doc('students').set(students);
             refreshData();
         }
     }
 
     async function addNewStudent() {
-        const val = document.getElementById('studentInput').value.trim();
-        if (val) {
-            if(studentList.includes(val)) return alert("Already exists!");
-            studentList.push(val);
-            await db.collection('settings').doc('students').set({ names: studentList });
+        const name = document.getElementById('studentInput').value.trim();
+        const key = document.getElementById('genderSelectInput').value;
+        if (name) {
+            students[key].push(name);
+            await db.collection('settings').doc('students').set(students);
             document.getElementById('studentInput').value = '';
             syncData();
         }
     }
 
-    async function removeStudent(i) {
-        if(confirm(`Delete ${studentList[i]}?`)) {
-            studentList.splice(i, 1);
-            await db.collection('settings').doc('students').set({ names: studentList });
+    async function removeStudent(key, i) {
+        if(confirm(`Delete student?`)) {
+            students[key].splice(i, 1);
+            await db.collection('settings').doc('students').set(students);
             syncData();
         }
     }
 
+    function switchTab(t) {
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.add('hidden'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-' + t).classList.remove('hidden');
+        event.currentTarget.classList.add('active');
+        if(t === 'logs') refreshLogs(); else refreshData();
+    }
+
+    function refreshLogs() {
+        const date = document.getElementById('logFilterDate').value;
+        const body = document.getElementById('logsBody'); body.innerHTML = '';
+        attendanceHistory.filter(h => h.date === date).forEach(h => {
+            const absents = h.data.filter(r => r.status === 'Absent').map(r => r.name).join(', ');
+            body.innerHTML += `<tr><td>${h.session}</td><td class="text-danger">${absents || 'None'}</td></tr>`;
+        });
+    }
+
+    document.getElementById('dateSelect').valueAsDate = new Date();
+    document.getElementById('logFilterDate').valueAsDate = new Date();
     checkSchedule();
     syncData();
 </script>
