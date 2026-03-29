@@ -125,7 +125,7 @@
 
 <script>
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js').then(() => console.log("SW Registered"));
+        navigator.worker.register('sw.js').then(() => console.log("SW Registered"));
     }
 
     const firebaseConfig = {
@@ -155,7 +155,8 @@
                 students.females = data.females || [];
                 students.males = data.males || [];
             }
-            const history = await db.collection('attendance').orderBy('timestamp', 'desc').limit(50).get();
+            // Fetch more history to accurately check for consecutive absences
+            const history = await db.collection('attendance').orderBy('timestamp', 'desc').limit(100).get();
             attendanceHistory = history.docs.map(d => d.data());
             refreshData();
             updateSyncStatus('Cloud Synced', 'synced');
@@ -197,18 +198,48 @@
         const student = combinedList[currentIdx];
         const nameDisp = document.getElementById('nameDisplay');
         const genderLbl = document.getElementById('genderLabel');
+        const alertBox = document.getElementById('absenceAlert');
+        const historyList = document.getElementById('absenceHistory');
         
         nameDisp.innerText = student.name;
         genderLbl.innerText = student.gender;
         genderLbl.style.color = student.gender === 'Female' ? 'var(--female)' : 'var(--male)';
         document.getElementById('progressText').innerText = `Marking ${currentIdx + 1}/${combinedList.length}`;
+
+        // Logic to check for consecutive absences
+        let absentSessions = [];
+        for (let entry of attendanceHistory) {
+            const record = entry.data.find(r => r.name === student.name);
+            if (record) {
+                if (record.status === 'Absent') {
+                    absentSessions.push(`${entry.date} (${entry.session})`);
+                } else {
+                    // Stop looking once we hit a "Present" mark
+                    break;
+                }
+            }
+        }
+
+        if (absentSessions.length > 0) {
+            alertBox.classList.remove('hidden');
+            historyList.innerHTML = absentSessions.map(s => `• ${s}`).join('<br>');
+        } else {
+            alertBox.classList.add('hidden');
+        }
     }
 
     async function processMark(status) {
+        // If marking present, hide the alert immediately for the transition
+        if (status === 'Present') {
+            document.getElementById('absenceAlert').classList.add('hidden');
+        }
+
         currentSessionData.push({ name: combinedList[currentIdx].name, status: status });
         currentIdx++;
-        if (currentIdx < combinedList.length) updateUI();
-        else {
+        
+        if (currentIdx < combinedList.length) {
+            updateUI();
+        } else {
             updateSyncStatus('Saving...', 'syncing');
             await db.collection('attendance').add({
                 date: document.getElementById('dateSelect').value,
@@ -221,7 +252,6 @@
     }
 
     function refreshData() {
-        // Ranking
         const aBody = document.getElementById('analyticsBody'); aBody.innerHTML = '';
         [...students.females, ...students.males].forEach(name => {
             let p = 0, a = 0;
@@ -233,7 +263,6 @@
             aBody.innerHTML += `<tr><td>${name}</td><td class="text-success">${p}</td><td class="text-danger">${a}</td><td>${rate}%</td></tr>`;
         });
 
-        // Student List
         const sDiv = document.getElementById('studentList'); sDiv.innerHTML = '';
         renderSection(sDiv, 'Females', students.females, 'females');
         renderSection(sDiv, 'Males', students.males, 'males');
